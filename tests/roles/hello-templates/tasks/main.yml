@@ -1,31 +1,32 @@
 - name: Create project
-  openshift_v1_project:
-    name: test-resource-defn
-    display_name: Resource Defn 
-    description: Load resources 
-    debug: no
+  k8s:
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
+    definition:
+      kind: Project
+      apiVersion: v1
+      metadata:
+        name: test-resource-defn
+        displayName: Resource Defn
+        description: Load resources
   register: create_project
 
-- debug: var=create_project
+- debug: msg={{ lookup('k8s', api_version='v1', kind='Project', resource_name="test-resource-defn")}}
 
 # Create service from unaltered YAML copied from console
 - name: Create service from resource definition
-  k8s_v1_service:
+  k8s:
     state: present
-    debug: yes
+    kubeconfig: '{{ os_kubeconfig }}'
+    host: '{{ os_host }}'
+    verify_ssl: '{{ os_verify_ssl }}'
     resource_definition:
       apiVersion: v1
       kind: Service
       metadata:
         name: hello-service
-        namespace: test-resource-defn 
-        selfLink: /api/v1/namespaces/hello/services/hello-service
-        uid: fd228ddb-0f38-11e7-840c-a2a3304da08d
-        resourceVersion: '42303'
-        creationTimestamp: '2017-03-22T19:51:49Z'
+        namespace: test-resource-defn
       labels:
         app: hello
       spec:
@@ -39,22 +40,20 @@
         type: ClusterIP
         sessionAffinity: None
       status:
-        loadBalancer: {} 
-    kubeconfig: '{{ os_kubeconfig }}'
-    host: '{{ os_host }}'
-    verify_ssl: '{{ os_verify_ssl }}'
-  register: create_service 
+        loadBalancer: {}
+  register: create_service
 
-- debug: var=create_service
+- debug: msg={{ lookup('k8s', api_version='v1', kind='Service', namespace='test-resource-defn', resource_name="hello-service") }}
 
 - name: Create deployment from resource file
-  openshift_v1_deployment_config:
+  k8s:
     state: present
-    debug: yes
     src: "{{ role_path }}/files/deployment.yml"
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
   register: deployment_create
-  
-- debug: var=deployment_create
+
+- debug: msg={{ lookup('k8s', src=src) }}
+  vars:
+    src: "{{ role_path }}/files/deployment.yml"

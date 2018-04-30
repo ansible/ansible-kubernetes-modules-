@@ -10,3 +10,9 @@
     - role: ansible-kubernetes-modules
     - role: hello-world 
     - role: hello-templates
+  tasks:
+    - name: output cluster information
+      debug: msg={{ lookup('k8s', cluster_info=item) }}
+      with_items:
+        - version
+        - api_groups

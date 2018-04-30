@@ -1,96 +1,115 @@
 - name: Delete project
-  openshift_v1_project:
-    name: hello 
+  k8s:
+    kind: Project
+    api_version: v1
+    name: hello
     state: absent
-    debug: yes
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
-  register: delete_project 
+  register: delete_project
 
-- debug: var=delete_project
+- debug: msg={{ lookup('k8s', api_version='v1', kind='Project', resource_name='hello')}}
 
 - name: Create project
-  openshift_v1_project:
-    name: hello 
+  k8s:
+    kind: Project
+    api_version: v1
+    name: hello
     state: present
-    display_name: Hello World 
-    description: Hello.
-    debug: yes
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
   register: create_project
 
-- debug: var=create_project
+- debug: msg={{ lookup('k8s', api_version='v1', kind='Project', resource_name='hello')}}
 
-- name: Create service 
-  k8s_v1_service:
-    name: hello-service 
-    namespace: hello 
+- name: Create service
+  k8s:
     state: present
-    ports:
-      - port: 8080 
-        target_port: 8080
-        name: web-tcp 
-    selector:
-      app: hello
-    labels:
-      app: hello 
-    debug: yes
+    definition:
+      kind: Service
+      apiVersion: v1
+      metadata:
+        name: hello-service
+        namespace: hello
+        labels:
+          app: hello
+      spec:
+        ports:
+          - port: 8080
+            targetPort: 8080
+            name: web-tcp
+        selector:
+          app: hello
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
-  register: create_service 
+  register: create_service
 
-- debug: var=create_service
+- debug: msg={{ lookup('k8s', api_version='v1', kind='Service', namespace='hello', label_selector='app=hello') }}
 
 - name: Create deployment config
-  openshift_v1_deployment_config:
-    name: hello-deploy
-    namespace: hello
-    state: present 
-    debug: yes
-    labels:
-      app: hello
-    spec_template_metadata_name: hello-pod 
-    spec_template_metadata_labels:
-      app: hello
-    containers:
-      - name: hello
-        image: openshift/busybox-http-app
-        ports:
-        - container_port: 8080 
-          protocol: TCP
-          name: web-8080-tcp 
-        - container_port: 8100
-          protocol: TCP
-          name: web-8100-tcp 
-    replicas: 1
-    selector:
-       app: hello
-    strategy_type: Rolling
+  k8s:
+    state: present
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
+    definition:
+      kind: DeploymentConfig
+      apiVersion: apps.openshift.io/v1
+      metadata:
+        name: hello-deploy
+        namespace: hello
+        labels:
+          app: hello
+      spec:
+        replicas: 1
+        selector:
+          app: hello
+        strategy:
+          type: Rolling
+        template:
+          metadata:
+            name: hello-pod
+            labels:
+              app: hello
+          spec:
+            containers:
+              - name: hello
+                image: openshift/busybox-http-app
+                ports:
+                - containerPort: 8080
+                  protocol: TCP
+                  name: web-8080-tcp
+                - containerPort: 8100
+                  protocol: TCP
+                  name: web-8100-tcp
   register: create_deployment
 
-- debug: var=create_deployment
-  
+- debug: msg={{ lookup('k8s', api_version='apps.openshift.io/v1', kind='DeploymentConfig', namespace='hello', resource_name='hello-deploy')}}
+
 - name: Create route
-  openshift_v1_route:
-    name: hello-route 
-    namespace: hello
-    state: present
-    to_kind: Service
-    to_name: hello-service
-    to_weight: 100
-    port_target_port: web-tcp
-    tls_termination: edge
+  k8s:
     kubeconfig: '{{ os_kubeconfig }}'
     host: '{{ os_host }}'
     verify_ssl: '{{ os_verify_ssl }}'
+    state: present
+    definition:
+      kind: Route
+      apiVersion: route.openshift.io/v1
+      metadata:
+        name: hello-route
+        namespace: hello
+      spec:
+        port:
+          targetPort: web-tcp
+        tls:
+          termination: edge
+        to:
+          kind: Service
+          name: hello-service
+          weight: 100
   register: create_route
 
-- debug: var=create_route
-
+- debug: msg={{ lookup('k8s', api_version='route.openshift.io/v1', kind='Route', namespace='hello', resource_name='hello-route')}}
